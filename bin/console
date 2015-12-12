@@ -1,14 +1,105 @@
 #!/usr/bin/env ruby
+require 'vendor_machine'
+trap('SIGINT') { exit! }
 
-require "bundler/setup"
-require "vendor_machine"
+commands = " 1. show items\n 2. choose item\n 3.[SERVICE] add item\n 4.[SERVICE] add coin\n 5. [SERVICE] add dummy data\n 0. exit"
 
-# You can add fixtures and/or initialization code here to make experimenting
-# with your gem easier. You can also use a different console, if you like.
+@machine = VendorMachine::Machine.new
 
-# (If you use this, don't forget to add pry to your Gemfile!)
-# require "pry"
-# Pry.start
+def init_with_values
+  10.times { @machine.add_item VendorMachine::Item.new('coca-cola', 1.25) }
+  7.times { @machine.add_item VendorMachine::Item.new('iced-tea', 0.95) }
+  20.times { @machine.add_item VendorMachine::Item.new('water', 0.55) }
 
-require "irb"
-IRB.start
+  7.times { @machine.add_money 0.01 }
+  12.times { @machine.add_money 0.02 }
+  10.times { @machine.add_money 0.05 }
+  10.times { @machine.add_money 0.1 }
+  4.times { @machine.add_money 0.2 }
+  3.times { @machine.add_money 0.5 }
+  2.times { @machine.add_money 1.0 }
+  1.times { @machine.add_money 2.0 }
+end
+
+def choose_item
+  puts 'Item name:'
+  item = @machine.show_item(gets.strip)
+  puts "#{item.name} - #{item.price}"
+  item
+end
+
+def insert_coins
+  loop do
+    puts "EXIT 0 | Inserted: #{@machine.pending_amount}"
+    coin = gets.strip.to_f
+    break if coin == 0
+    begin
+      @machine.put_coin(coin)
+    rescue VendorMachine::InvalidCoin
+      puts 'invalid coin'
+    end
+  end
+end
+
+def buy_item(item)
+  loop do
+    begin
+      insert_coins
+      item, change = @machine.buy_item(item.name)
+      puts "Received: #{item.name}(#{item.price}) and £#{change}"
+      break
+    rescue VendorMachine::NoChangeNoAvailable
+      puts e.message
+      break
+    rescue  VendorMachine::NotEnoughMoney
+      puts 'Put more money'
+    end
+  end
+end
+
+def add_coin
+  puts '[SERVICE] add coin:'
+  begin
+    @machine.add_money gets.strip.to_f
+  rescue VendorMachine::InvalidCoin => e
+    puts e.message
+  end
+  puts "[SERVICE] Money in machine: #{@machine.money}"
+end
+
+def print_items
+  @machine.items.each do |name, items|
+    puts "#{name} (#{items.first.price}): #{items.size}"
+  end
+end
+
+def add_item
+  puts '[SERVICE] add item:'
+  puts 'name'
+  name = gets.strip
+  price = gets.strip.to_f
+  @machine.add_item VendorMachine::Item.new(name, price)
+end
+
+cmd = nil
+
+while cmd != 'exit'
+  puts commands
+  cmd = gets.strip
+  case cmd
+  when '1' # show items
+    print_items
+  when '2' # buy item
+    item = choose_item
+    buy_item item unless item.nil?
+  when '3' # add item
+    add_item
+  when '4' # add coins
+    add_coin
+  when '5' # init with data
+    init_with_values
+    puts 'Added'
+  when '0'
+    exit!
+  end
+end
