@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/phone_number_geolocation'
+
+PhoneNumberGeolocation::Location.delete_all
+PhoneNumberGeolocation::Location.create_indexes
+
+file = File.new('data/available_phone_numbers.txt', 'r')
+while (phone_number = file.gets)
+  phone_number.gsub!("\n", '')
+  phone = Phonelib.parse(phone_number)
+  country = phone.country
+  geo_name = phone.geo_name
+  coordinates = Geocoder.coordinates "#{geo_name}, #{country}"
+  query = { country: country }
+  query[:geo_name] =  geo_name if geo_name.present?
+
+  PhoneNumberGeolocation::Location.collection.find(query).modify(
+    {
+      '$setOnInsert' => { location: coordinates.reverse },
+      '$addToSet' => { phone_numbers: phone_number }
+    },
+    upsert: true
+  )
+end
+file.close

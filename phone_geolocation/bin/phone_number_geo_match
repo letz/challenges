@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/phone_number_geolocation'
+
+unless PhoneNumberGeolocation::Location.exists?
+  puts "run 'populate_db' first"
+  exit(-1)
+end
+
+validator = PhoneNumberGeolocation::ArgumentsValidator.new(*ARGV)
+
+assigner = PhoneNumberGeolocation::PhoneAssigner.new(
+  validator.target_number, validator.customer_numbers, validator.same_country?
+)
+
+phone, place = assigner.find_closest
+if phone.nil?
+  puts 'no match found'
+else
+  puts "#{phone} (#{place})"
+end
